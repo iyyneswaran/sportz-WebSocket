@@ -50,6 +50,14 @@ matchRouter.post('/', async (req, res) => {
             status: getMatchStatus(startTime, endTime),
         }).returning();
 
+        if (res.app.locals.broadcastMatchCreated) {
+            try {
+                res.app.locals.broadcastMatchCreated(event);
+            } catch (broadcastError) {
+                console.error('WebSocket broadcast failed:', broadcastError);
+            }
+        }
+
         res.status(201).json({ data: event })
     }
     catch (e) {
