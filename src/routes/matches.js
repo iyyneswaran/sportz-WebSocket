@@ -12,7 +12,7 @@ const MAX_LIMIT = 100;
 matchRouter.get('/', async (req, res) => {
     const parsed = listMatchesQuerySchema.safeParse(req.query);
     if (!parsed.success) {
-        return res.status(400).json({ errors: 'Invalid query parameters', details: parsed.error });
+        return res.status(400).json({ errors: 'Invalid query parameters', details: parsed.error.issues });
     }
     const limit = Math.min(parsed.data.limit ?? 50, MAX_LIMIT);
 
@@ -33,11 +33,12 @@ matchRouter.get('/', async (req, res) => {
 matchRouter.post('/', async (req, res) => {
     const parsed = createMatchSchema.safeParse(req.body);
     if (!parsed.success) {
-        return res.status(400).json({ errors: 'Invalid match data', details: parsed.error });
+        return res.status(400).json({ errors: 'Invalid match data', details: parsed.error.issues });
     }
 
+    const { data: { startTime, endTime, homeScore, awayScore } } = parsed;
+
     try {
-        const { data: { startTime, endTime, homeScore, awayScore } } = parsed;
         const [event] = await db.insert(matches).values({
             sport: parsed.data.sport,
             homeTeam: parsed.data.homeTeam,
@@ -52,6 +53,6 @@ matchRouter.post('/', async (req, res) => {
         res.status(201).json({ data: event })
     }
     catch (e) {
-        res.status(500).json({ error: 'Failed to create match.', details: e.message });
+        res.status(500).json({ error: 'Failed to create match.' });
     }
 });
