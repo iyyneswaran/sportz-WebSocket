@@ -18,21 +18,25 @@ function broadcast(wss, payload) {
 export function attachWebSocketServer(server) {
     const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 1024 * 1024 })
 
-    wss.on('connection', async (socket) => {
+    wss.on('upgrade', async (req, socket, res) => {
 
         if (wsArcjet) {
             try {
-                const decision = await wsArcjet.protect(socket);
+                const decision = await wsArcjet.protect(req);
                 if (decision.isDenied()) {
-                    const code = decision.reason.isRateLimit() ? 1013 : 1008;
-                    const reason = decision.reason.isRateLimit() ? 'Rate limit reached' : 'Access denied';
+                    if (decision.isDenied()) {
+                        socket.write('HTTP/1.1 429 Too many Requests\r\n\r\n');
+                    } else {
+                        socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+                    }
 
                     socket.close(code, reason);
                     return;
                 }
             } catch (e) {
                 console.error('WS Connection error', e);
-                socket.close(1011, 'Internal server error');
+                socket.write('HTTP/1.1 500 Internal Server Error\r\n\r\n');
+                socket.destroy();
                 return;
             }
         }
@@ -43,6 +47,10 @@ export function attachWebSocketServer(server) {
 
         socket.on('error', console.error);
     })
+
+    wss.handleUpgrade(req, socket, head, (ws) => {
+            wss.emit('connection', ws, req);
+        });
 
     const interval = setInterval(() => {
         wss.clients.forEach((ws) => {
